@@ -140,10 +140,10 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 #### Semana 1 · 9 – 15 nov · Base común
 
 **Juntos (lunes–martes)**
-- [ ] Etiquetar la R1 (`git tag release1`) y crear las dos ramas
-- [ ] Escribir `common/cripto.py` con su test (ida y vuelta, clave incorrecta, mensaje manipulado)
-- [ ] Pedir la API key de OpenWeather (tarda en activarse)
-- [ ] Comprobar que podéis lanzar el Learner Lab de AWS y reabrir los puertos 5000, 8080, 8443, 9092, 3000
+- [X] Etiquetar la R1 (`git tag release1`) y crear las dos ramas
+- [X] Escribir `common/cripto.py` con su test (ida y vuelta, clave incorrecta, mensaje manipulado)
+- [X] Pedir la API key de OpenWeather (tarda en activarse)
+- [X] Comprobar que podéis lanzar el Learner Lab de AWS y reabrir los puertos 5000, 8080, 8443, 9092, 3000
 
 **Iker**
 - [ ] Tabla `credenciales` en `WM_Central/database.py`
