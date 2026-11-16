@@ -1,0 +1,3 @@
+# Formato: <WS_ID> <Ciudad>
+WS_01 bENIDORM
+WS_02 Madrid
