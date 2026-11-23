@@ -1,5 +1,12 @@
+import hashlib
+import secrets
 import sqlite3
-import hashlib, secrets, time
+import time
+
+# Columnas que se pueden mostrar: nunca clave_auth ni clave_sesion
+COLUMNAS_PUBLICAS = ('ws_id', 'ubicacion', 'huella_cert', 'activa', 'alta_ts')
+
+
 class YaExiste(Exception):
     pass
 
@@ -43,10 +50,24 @@ def crear(conn, ws_id, ubicacion, huella_cert):
 def obtener(conn, ws_id):
     """Datos públicos de una estación (nunca los secretos) o None si no existe."""
     fila = conn.execute(
-        "SELECT ws_id, ubicacion, huella_cert, activa, alta_ts FROM credenciales WHERE ws_id = ?",
+        f"SELECT {', '.join(COLUMNAS_PUBLICAS)} FROM credenciales WHERE ws_id = ?",
         (ws_id,),
     ).fetchone()
     if fila is None:
         return None
-    claves = ('ws_id', 'ubicacion', 'huella_cert', 'activa', 'alta_ts')
-    return dict(zip(claves, fila))
+    return dict(zip(COLUMNAS_PUBLICAS, fila))
+
+
+def listar(conn):
+    """Todas las estaciones, solo con datos públicos, ordenadas por ws_id."""
+    filas = conn.execute(
+        f"SELECT {', '.join(COLUMNAS_PUBLICAS)} FROM credenciales ORDER BY ws_id"
+    ).fetchall()
+    return [dict(zip(COLUMNAS_PUBLICAS, f)) for f in filas]
+
+
+def dar_de_baja(conn, ws_id):
+    """Marca la estación como no activa. True si existía, False si no."""
+    cursor = conn.execute("UPDATE credenciales SET activa = 0 WHERE ws_id = ?", (ws_id,))
+    conn.commit()
+    return cursor.rowcount > 0
