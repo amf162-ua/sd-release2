@@ -146,14 +146,14 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 - [X] Comprobar que podéis lanzar el Learner Lab de AWS y reabrir los puertos 5000, 8080, 8443, 9092, 3000
 
 **Iker**
-- [ ] Tabla `credenciales` en `WM_Central/database.py`
-- [ ] Esqueleto de WM_Registry y certificado autofirmado del servidor, sirviendo por HTTPS
-- [ ] `POST` y `GET /api/v1/estaciones`, probados con `curl` y con el certificado fijado
+- [X] Tabla `credenciales` en `WM_Central/database.py`
+- [X] Esqueleto de WM_Registry y certificado autofirmado del servidor, sirviendo por HTTPS
+- [X] `POST` y `GET /api/v1/estaciones`, probados con `curl` y con el certificado fijado
 
 **Àlex**
-- [ ] `common/auditoria.py` (Iker lo necesita pronto; que haga la versión mínima el primer día)
-- [ ] WM_W: consultar OpenWeather para una ciudad y decidir LLUVIA / HELADA / OK
-- [ ] Ciudades editables en caliente (fichero que se relee y/o menú), consulta cada 4 s
+- [X] `common/auditoria.py`
+- [X] WM_W: consultar OpenWeather para una ciudad y decidir LLUVIA / HELADA / OK
+- [X] Ciudades editables en caliente (fichero que se relee y/o menú), consulta cada 4 s
 
 **Hito:** `cripto.py` mezclado en `main`, Registry responde por HTTPS, WM_W imprime el clima de varias ciudades.
 
