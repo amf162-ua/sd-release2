@@ -129,3 +129,32 @@ def test_riego_en_curso_termina_normal_y_luego_pasa_a_fuera_servicio(tmp_path, m
     # Si cancelamos la alerta -> vuelve a DISPONIBLE
     central.cancelar_alerta_clima("WS_01")
     assert ws.estado == "DISPONIBLE"
+
+
+def _central_con_ws(tmp_path, monkeypatch):
+    monkeypatch.setattr(auditoria, "AUDITORIA_PATH", str(tmp_path / "auditoria.jsonl"))
+    bd = BaseDatos(str(tmp_path / "test.db"))
+    bd.guardar_estacion("WS_01", "Alicante")
+    central = Central(puerto_sockets=0, servidor_kafka="localhost:9092", bd=bd)
+    central.productor = None
+    central.estaciones["WS_01"].conectada = True
+    return central, central.estaciones["WS_01"]
+
+
+def test_cancelar_alerta_no_desbloquea_un_bloqueo_manual(tmp_path, monkeypatch):
+    central, ws = _central_con_ws(tmp_path, monkeypatch)
+    central.orden_central("BLOQUEAR", "WS_01")          # el operario la bloquea
+    central.registrar_alerta_clima("WS_01", "LLUVIA")
+    central.cancelar_alerta_clima("WS_01")
+    assert ws.alerta_clima is None
+    assert ws.bloqueada is True                          # sigue bloqueada a mano
+    assert ws.estado == "FUERA_SERVICIO"
+    assert central.bd.estaciones()[0]["bloqueada"]       # y persistida
+
+
+def test_cancelar_sin_alerta_no_toca_la_estacion(tmp_path, monkeypatch):
+    central, ws = _central_con_ws(tmp_path, monkeypatch)
+    central.orden_central("BLOQUEAR", "WS_01")
+    ok, _ = central.cancelar_alerta_clima("WS_01")       # DELETE idempotente
+    assert ok is True
+    assert ws.bloqueada is True

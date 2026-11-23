@@ -21,6 +21,7 @@ Entidades expuestas:
 """
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import hmac
 import json
 import os
 from urllib.parse import parse_qs, unquote, urlparse
@@ -55,11 +56,19 @@ def iniciar_api(central, puerto: int):
                 return {}
             return json.loads(self.rfile.read(tam).decode("utf-8"))
 
+        def _entero(self, qs, nombre, defecto):
+            """Lee un parámetro entero de la query; si no lo es, responde 400 y devuelve None."""
+            try:
+                return int(qs.get(nombre, [str(defecto)])[0])
+            except ValueError:
+                self._json(400, {"ok": False, "mensaje": f"'{nombre}' debe ser un entero"})
+                return None
+
         def _autorizado(self):
             if not api_key_esperada:
                 return True
             recibida = self.headers.get("X-API-Key", "").strip()
-            if recibida == api_key_esperada:
+            if hmac.compare_digest(recibida.encode(), api_key_esperada.encode()):
                 return True
             ip = self.client_address[0]
             auditoria.registrar("API_CENTRAL", ip, "AUTH_KO",
@@ -99,7 +108,9 @@ def iniciar_api(central, puerto: int):
 
             # --- /irrigations ---
             if partes == ["irrigations"]:
-                limite = int(qs.get("limite", ["20"])[0])
+                limite = self._entero(qs, "limite", 20)
+                if limite is None:
+                    return
                 en_curso = [ws for ws in central.foto_estaciones() if ws["estado"] == "REGANDO"]
                 return self._json(200, {
                     "en_curso": en_curso,
@@ -134,7 +145,9 @@ def iniciar_api(central, puerto: int):
 
             # --- /audit y /audit/{fecha} ---
             if partes == ["audit"]:
-                limite = int(qs.get("limite", ["100"])[0])
+                limite = self._entero(qs, "limite", 100)
+                if limite is None:
+                    return
                 return self._json(200, auditoria.leer_ultimos(limite))
             if len(partes) == 2 and partes[0] == "audit":
                 fecha = partes[1]

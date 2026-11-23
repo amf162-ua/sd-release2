@@ -99,3 +99,21 @@ def test_api_central_entidades_y_seguridad(tmp_path, monkeypatch):
     code, eventos_hoy, _ = _peticion(f"{base}/audit/{hoy}")
     assert code == 200
     assert len(eventos_hoy) == len(eventos)
+
+
+def test_api_parametros_invalidos_dan_400_y_clave_incorrecta_401(tmp_path, monkeypatch):
+    monkeypatch.setattr(auditoria, "AUDITORIA_PATH", str(tmp_path / "auditoria.jsonl"))
+    monkeypatch.setenv("API_KEY", "clave-secreta-test")
+    bd = BaseDatos(str(tmp_path / "test.db"))
+    central = Central(puerto_sockets=0, servidor_kafka="localhost:9092", bd=bd)
+    central.productor = None
+    puerto = 18081
+    threading.Thread(target=iniciar_api, args=(central, puerto), daemon=True).start()
+    time.sleep(0.15)
+    base = f"http://127.0.0.1:{puerto}"
+
+    code, _, _ = _peticion(f"{base}/audit?limite=abc", api_key="clave-secreta-test")
+    assert code == 400
+    code, _, _ = _peticion(f"{base}/weather/WS_01", metodo="PUT",
+                           payload={"motivo": "HELADA"}, api_key="otra-clave")
+    assert code == 401

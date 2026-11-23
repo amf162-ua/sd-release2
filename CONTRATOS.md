@@ -30,17 +30,19 @@ Fernet (AES-128-CBC + HMAC-SHA256 + marca de tiempo). Se justifica en la memoria
 
 ## 2. Registry (WM_Registry) — API REST sobre HTTPS, puerto 8443
 
+> **Convención (23/11, indicada por el profesor):** una ruta por entidad, sin prefijo `/api/v1`. El Registry usa `/ws` y `/system` igual que la API de Central (son servidores distintos, puertos 8443 y 8080).
+
 Certificado del servidor: autofirmado, lo genera el Registry. El Monitor lo verifica **fijándolo** (`ca_registry.pem` en su imagen), con `verify_mode=CERT_REQUIRED` y sin comprobar el nombre del host, porque la IP de AWS cambia en cada sesión.
 
 Certificado de la WS: el Monitor genera un par RSA y un certificado autofirmado (`CN=<ws_id>`, `O=<ubicación>`). La clave privada nunca sale de la estación.
 
 | Método | Ruta | Cuerpo / cabecera | Respuesta |
 |---|---|---|---|
-| POST | `/api/v1/estaciones` | `{ws_id, ubicacion, certificado_pem}` | `201 {ws_id, token}` (el token solo se muestra ahora) · `409` si ya existe |
-| GET | `/api/v1/estaciones` | — | Lista (sin secretos) |
-| GET | `/api/v1/estaciones/{ws_id}` | — | `{ws_id, ubicacion, huella_cert, activa}` o `404` |
-| PUT | `/api/v1/estaciones/{ws_id}` | `X-Token`, `{ubicacion}` | `200` |
-| DELETE | `/api/v1/estaciones/{ws_id}` | `X-Token` | `200` (baja: `activa=0`) |
+| POST | `/ws` | `{ws_id, ubicacion, certificado_pem}` | `201 {ws_id, token}` (el token solo se muestra ahora) · `409` si ya existe |
+| GET | `/ws` | — | Lista (sin secretos) |
+| GET | `/ws/{ws_id}` | — | `{ws_id, ubicacion, huella_cert, activa}` o `404` |
+| PUT | `/ws/{ws_id}` | `X-Token`, `{ubicacion}` | `200` |
+| DELETE | `/ws/{ws_id}` | `X-Token` | `200` (baja: `activa=0`) |
 
 Tabla en la BD compartida:
 `credenciales(ws_id PK, ubicacion, huella_cert, clave_auth, clave_sesion, activa, alta_ts)`
@@ -61,20 +63,20 @@ Reset de claves (opción en Central): `clave_sesion = NULL`. En el siguiente `ES
 
 ## 4. API_Central (HTTP, puerto 8080, sustituye a `panel_web.py`)
 
-> **Nota (23/11):** la API de Central ya no sigue esta tabla. Se implementó por recursos (`/ws`, `/operators`, `/irrigations`, `/weather`, `/audit`, `/system`, sin `/api/v1`). La referencia vigente es el docstring de `WM_Central/api_central.py`. El Registry mantiene `/api/v1/estaciones`.
-
-Prefijo `/api/v1`. CORS abierto para el Front. WM_W envía la cabecera `X-API-Key` (variable de entorno `API_KEY`).
+Referencia vigente: el docstring de `WM_Central/api_central.py`. Una ruta por entidad, sin prefijo. CORS abierto para el Front. WM_W envía la cabecera `X-API-Key` (variable de entorno `API_KEY`).
 
 | Método | Ruta | Uso |
 |---|---|---|
-| GET | `/estado` | Todo lo que pinta el Front (estaciones, operarios, riegos, registro) |
-| GET | `/estaciones`, `/operarios`, `/riegos` | Consultas sueltas |
-| GET | `/alertas` | Alertas climáticas activas |
-| GET | `/auditoria?limite=100` | Últimas líneas del log de auditoría |
-| PUT | `/alertas/{ws_id}` | WM_W: activa o actualiza alerta `{motivo: "LLUVIA"\|"HELADA", temperatura, ciudad}` |
-| DELETE | `/alertas/{ws_id}` | WM_W: cancela la alerta |
-| DELETE | `/estaciones/{ws_id}/clave` | Reset de claves (la WS queda fuera de servicio) |
-| POST | `/ordenes` | Órdenes del punto 11 (las de la R1) |
+| GET | `/ws`, `/ws/{id}` | Listado y detalle de estaciones |
+| POST | `/ws` | Alta de estación |
+| PUT | `/ws/{id}` | `{accion: BLOQUEAR\|ACTIVAR\|RESET_CLAVES}` |
+| GET / POST | `/operators`, `/operators/{id}` | Operarios |
+| GET / POST | `/irrigations` | Riegos en curso e histórico / iniciar riego desde Central |
+| GET | `/weather`, `/weather/{ws_id}` | Clima y alertas |
+| PUT | `/weather/{ws_id}` | WM_W: activa alerta `{motivo: "LLUVIA"\|"HELADA", temperatura, ciudad}` |
+| DELETE | `/weather/{ws_id}` | WM_W: cancela la alerta |
+| GET | `/audit?limite=100`, `/audit/{fecha}` | Auditoría |
+| GET | `/system` | Estado técnico y últimos logs |
 
 ### Campos nuevos en `Estacion.a_dict()`
 
@@ -84,7 +86,7 @@ Prefijo `/api/v1`. CORS abierto para el Front. WM_W envía la cabecera `X-API-Ke
 | `token_activo` | bool (hay `clave_sesion`) | Persona 1 |
 | `ciudad` | str \| null | Persona 2 |
 | `temperatura` | float \| null | Persona 2 |
-| `alerta_clima` | null \| `{motivo, temperatura, ciudad}` | Persona 2 |
+| `alerta_clima` | null \| `"LLUVIA"` \| `"HELADA"` | Persona 2 |
 
 ### Regla del estado con alerta climática
 
@@ -150,7 +152,7 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 **Iker**
 - [X] Tabla `credenciales` y su acceso en `common/credenciales.py` (`abrir`, `crear`, `obtener`, `listar`, `dar_de_baja`, `verificar_token`, `actualizar_ubicacion`)
 - [X] Esqueleto de WM_Registry y certificado autofirmado del servidor, sirviendo por HTTPS
-- [X] `POST` y `GET /api/v1/estaciones`, probados con `curl` y con el certificado fijado
+- [X] `POST` y `GET /ws`, probados con `curl` y con el certificado fijado
 - [X] `common/certificados.py` (generar, huella, nombre_comun) y `WM_Registry/generar_certificado.py` (certificado del servidor en `certs/`, la clave fuera de Git)
 
 **Àlex**
@@ -168,11 +170,11 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 - [ ] Dockerfile del Registry; volumen de la BD compartida con Central
 
 **Àlex**
-- [X] `api_central.py`: API por recursos (`/ws`, `/operators`, `/irrigations`, `/weather`, `/audit`, `/system`), CORS y `X-API-Key` (ya no usa `/api/v1`)
+- [X] `api_central.py`: API por recursos (`/ws`, `/operators`, `/irrigations`, `/weather`, `/audit`, `/system`), CORS y `X-API-Key`
 - [X] `PUT` y `DELETE /weather/{ws_id}`, `GET /weather` (sustituyen a `/alertas`)
 - [X] WM_W notifica la alerta y su cancelación a la API; Dockerfile de WM_W
 
-**Hito:** una WS se registra desde su menú y aparece en la BD. WM_W activa y cancela alertas visibles en `/api/v1/estado`.
+**Hito:** una WS se registra desde su menú y aparece en la BD. WM_W activa y cancela alertas visibles en `/weather`.
 
 #### Semana 3 · 23 – 29 nov · Seguridad y lógica de clima
 

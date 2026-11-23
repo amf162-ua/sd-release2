@@ -14,7 +14,7 @@ def bd():
     return credenciales.abrir(app.config['DB_PATH'])
 
 
-@app.post('/api/v1/estaciones')
+@app.post('/ws')
 def alta():
     datos = request.get_json(silent=True) or {}
     ws_id = datos.get('ws_id')
@@ -45,7 +45,7 @@ def alta():
     # 4. Todo bien -> 201 con el token
     return jsonify({'ws_id': ws_id, 'token': token}), 201
 
-@app.get('/api/v1/estaciones')
+@app.get('/ws')
 def listar():
     conn = bd()
     try:
@@ -55,7 +55,7 @@ def listar():
     return jsonify(estaciones)
 
 
-@app.get('/api/v1/estaciones/<ws_id>')
+@app.get('/ws/<ws_id>')
 def consultar(ws_id):
     conn = bd()
     try:
@@ -72,7 +72,7 @@ def _token_valido(conn, ws_id):
     return bool(token) and credenciales.verificar_token(conn, ws_id, token)
 
 
-@app.put('/api/v1/estaciones/<ws_id>')
+@app.put('/ws/<ws_id>')
 def modificar(ws_id):
     conn = bd()
     try:
@@ -89,7 +89,7 @@ def modificar(ws_id):
     return jsonify({'ws_id': ws_id, 'ubicacion': ubicacion})
 
 
-@app.delete('/api/v1/estaciones/<ws_id>')
+@app.delete('/ws/<ws_id>')
 def baja(ws_id):
     conn = bd()
     try:
@@ -101,7 +101,7 @@ def baja(ws_id):
     return jsonify({'ws_id': ws_id, 'activa': False})
 
 
-@app.get('/api/v1/salud')
+@app.get('/system')
 def salud():
     return jsonify({'ok': True})
 

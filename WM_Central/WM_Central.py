@@ -19,7 +19,7 @@ import time
 from collections import deque
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from common import auditoria
+from common import auditoria                                        # noqa: E402
 from common import estados as E                                     # noqa: E402
 from common import kafka_utils as K                                 # noqa: E402
 from common.protocolo import CanalTramas, ErrorProtocolo, STX, EOT, construir, separar  # noqa: E402
@@ -45,7 +45,8 @@ class Estacion:
         self.pendiente = None   # solicitud autorizada por CENTRAL esperando al Engine
         self.ciudad = ubicacion
         self.temperatura = None
-        self.alerta_clima = None  # None | 'LLUVIA' | 'HELADA
+        self.alerta_clima = None  # None | 'LLUVIA' | 'HELADA'
+        self.bloqueo_previo = False   # ¿estaba bloqueada a mano al llegar la alerta?
 
     @property
     def estado(self):
@@ -66,7 +67,7 @@ class Estacion:
             'ubicacion': self.ubicacion,
             'estado': self.estado,
             'registrada': True,
-            'tiene_token': bool(getattr(self, 'clave_simetrica', None)),
+            'token_activo': bool(getattr(self, 'clave_sesion', None)),
             'caudal': riego.get('caudal', 0.0),
             'volumen': riego.get('volumen', 0.0),
             'segundos': riego.get('segundos', 0),
@@ -422,7 +423,6 @@ class Central:
         with self.lock:
             return [ws.a_dict() for ws in sorted(self.estaciones.values(), key=lambda w: w.id)]
 
-    
     # =========================================================================
     def iniciar(self, puerto_panel):
         self.log(f"[CENTRAL] {len(self.estaciones)} estaciones cargadas de la BD (DESCONECTADAS)")
@@ -440,6 +440,8 @@ class Central:
                 ws.ciudad = ciudad
             if temperatura is not None:
                 ws.temperatura = temperatura
+            if ws.alerta_clima is None:          # primera alerta: recuerda si ya estaba bloqueada
+                ws.bloqueo_previo = ws.bloqueada
             ws.alerta_clima = motivo
             ws.bloqueada = True
             self.bd.marcar_bloqueada(ws.id, True)
@@ -460,17 +462,21 @@ class Central:
             ws = self.estaciones.get(ws_id)
             if ws is None:
                 return False, f"La estación {ws_id} no existe"
+            if ws.alerta_clima is None:          # nada que cancelar (DELETE idempotente)
+                return True, f"{ws_id} no tenía alerta climática activa"
             ws.alerta_clima = None
-            ws.bloqueada = False
-            self.bd.marcar_bloqueada(ws.id, False)
-            self.ordenar(ws.id, 'ACTIVAR')
+            if not ws.bloqueo_previo:            # solo se desbloquea si el bloqueo era del clima
+                ws.bloqueada = False
+                self.bd.marcar_bloqueada(ws.id, False)
+                self.ordenar(ws.id, 'ACTIVAR')
 
-        desc = f"Alerta climática cancelada en {ws_id} ({ws.ciudad}) -> ACTIVADA"
+        desc = f"Alerta climática cancelada en {ws_id} ({ws.ciudad}) -> {ws.estado}"
         self.log(f"[CLIMA] {desc}")
         auditoria.registrar("WM_W", ip_origen, "ALERTA_CANCELADA", desc,
                             ws_id=ws_id, ciudad=ws.ciudad)
         return True, desc
-    
+
+
 def main():
     p = argparse.ArgumentParser(prog='WM_Central', description='Central de la red de riego')
     p.add_argument('puerto_sockets', type=int, help='Puerto que se ofrece a los WM_WS_M')
