@@ -61,6 +61,8 @@ Reset de claves (opción en Central): `clave_sesion = NULL`. En el siguiente `ES
 
 ## 4. API_Central (HTTP, puerto 8080, sustituye a `panel_web.py`)
 
+> **Nota (23/11):** la API de Central ya no sigue esta tabla. Se implementó por recursos (`/ws`, `/operators`, `/irrigations`, `/weather`, `/audit`, `/system`, sin `/api/v1`). La referencia vigente es el docstring de `WM_Central/api_central.py`. El Registry mantiene `/api/v1/estaciones`.
+
 Prefijo `/api/v1`. CORS abierto para el Front. WM_W envía la cabecera `X-API-Key` (variable de entorno `API_KEY`).
 
 | Método | Ruta | Uso |
@@ -146,9 +148,10 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 - [X] Comprobar que podéis lanzar el Learner Lab de AWS y reabrir los puertos 5000, 8080, 8443, 9092, 3000
 
 **Iker**
-- [X] Tabla `credenciales` en `WM_Central/database.py`
+- [X] Tabla `credenciales` y su acceso en `common/credenciales.py` (`abrir`, `crear`, `obtener`, `listar`, `dar_de_baja`, `verificar_token`, `actualizar_ubicacion`)
 - [X] Esqueleto de WM_Registry y certificado autofirmado del servidor, sirviendo por HTTPS
 - [X] `POST` y `GET /api/v1/estaciones`, probados con `curl` y con el certificado fijado
+- [X] `common/certificados.py` (generar, huella, nombre_comun) y `WM_Registry/generar_certificado.py` (certificado del servidor en `certs/`, la clave fuera de Git)
 
 **Àlex**
 - [X] `common/auditoria.py`
@@ -160,14 +163,14 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 #### Semana 2 · 16 – 22 nov · Registro y API
 
 **Iker**
-- [ ] `PUT` y `DELETE` del Registry; baja = `activa=0`
+- [X] `PUT` y `DELETE` del Registry con `X-Token`; baja = `activa=0`
 - [ ] Monitor: generar par RSA + certificado, menú (registrar / baja), llamada HTTPS con certificado fijado
 - [ ] Dockerfile del Registry; volumen de la BD compartida con Central
 
 **Àlex**
-- [ ] `api_central.py`: migrar lo de `panel_web.py` a `/api/v1`, CORS y `X-API-Key`
-- [ ] `PUT` y `DELETE /alertas/{ws_id}`, `GET /alertas`
-- [ ] WM_W notifica la alerta y su cancelación a la API; Dockerfile de WM_W
+- [X] `api_central.py`: API por recursos (`/ws`, `/operators`, `/irrigations`, `/weather`, `/audit`, `/system`), CORS y `X-API-Key` (ya no usa `/api/v1`)
+- [X] `PUT` y `DELETE /weather/{ws_id}`, `GET /weather` (sustituyen a `/alertas`)
+- [X] WM_W notifica la alerta y su cancelación a la API; Dockerfile de WM_W
 
 **Hito:** una WS se registra desde su menú y aparece en la BD. WM_W activa y cancela alertas visibles en `/api/v1/estado`.
 
@@ -189,7 +192,7 @@ Entrega: semana del 13/12. Quedan cinco semanas de trabajo.
 #### Semana 4 · 30 nov – 6 dic · Reset, Front, auditoría y despliegue
 
 **Iker**
-- [ ] Reset de claves: `DELETE /estaciones/{ws_id}/clave` y botón; opción **Reautenticar** del Monitor
+- [ ] Reset de claves: conectar con `PUT /ws/{id}` (`RESET_CLAVES`) de la API de Central y botón; opción **Reautenticar** del Monitor
 - [ ] Llamadas a `auditoria.registrar` en registro, autenticación y reset
 - [ ] Front (Node): estructura y sección de WS
 - [ ] Despliegue: Registry en cloud, `compose.ws.yml` actualizado (lab 2)
