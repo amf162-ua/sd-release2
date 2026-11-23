@@ -44,3 +44,24 @@ def alta():
 
     # 4. Todo bien -> 201 con el token
     return jsonify({'ws_id': ws_id, 'token': token}), 201
+
+@app.get('/api/v1/estaciones')
+def listar():
+    conn = bd()
+    try:
+        estaciones = credenciales.listar(conn)
+    finally:
+        conn.close()
+    return jsonify(estaciones)
+
+
+@app.get('/api/v1/estaciones/<ws_id>')
+def consultar(ws_id):
+    conn = bd()
+    try:
+        estacion = credenciales.obtener(conn, ws_id)
+    finally:
+        conn.close()
+    if estacion is None:
+        return jsonify({'error': f'La estación {ws_id} no existe'}), 404
+    return jsonify(estacion)
