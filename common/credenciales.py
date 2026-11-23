@@ -1,4 +1,5 @@
 import hashlib
+import os
 import secrets
 import sqlite3
 import time
@@ -11,6 +12,9 @@ class YaExiste(Exception):
     pass
 
 def abrir(ruta):
+    carpeta = os.path.dirname(ruta)
+    if carpeta:
+        os.makedirs(carpeta, exist_ok=True)
     conn = sqlite3.connect(ruta)
     # 1. activar WAL y busy_timeout
     conn.execute("PRAGMA journal_mode=WAL")
