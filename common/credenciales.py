@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import os
 import secrets
 import sqlite3
@@ -75,3 +76,16 @@ def dar_de_baja(conn, ws_id):
     cursor = conn.execute("UPDATE credenciales SET activa = 0 WHERE ws_id = ?", (ws_id,))
     conn.commit()
     return cursor.rowcount > 0
+
+
+def verificar_token(conn, ws_id, token):
+    """True si el token corresponde a esa estación y la estación está activa."""
+    hash_recibido = hashlib.sha256(token.encode()).hexdigest()
+    fila = conn.execute(
+        "SELECT clave_auth, activa FROM credenciales WHERE ws_id = ?", (ws_id,)
+    ).fetchone()
+    if fila is None:
+        return False
+    clave_auth, activa = fila
+    # compare_digest tarda lo mismo acierte o falle: evita adivinar el secreto midiendo tiempos
+    return hmac.compare_digest(hash_recibido, clave_auth) and activa == 1

@@ -73,3 +73,37 @@ def test_dar_de_baja_deja_la_estacion_inactiva(tmp_path):
 def test_dar_de_baja_inexistente_devuelve_false(tmp_path):
     conn = credenciales.abrir(str(tmp_path / "test.db"))
     assert credenciales.dar_de_baja(conn, "WS_99") is False
+
+def test_verificar_token_correcto(tmp_path):
+    # 1. Preparar
+    conn = credenciales.abrir(str(tmp_path / "test.db"))
+    token = credenciales.crear(conn, "WS_01", "Parque X", "abc")
+
+    # 2. Ejecutar y 3. Comprobar
+    assert credenciales.verificar_token(conn, "WS_01", token) is True
+
+
+def test_verificar_token_incorrecto(tmp_path):
+    conn = credenciales.abrir(str(tmp_path / "test.db"))
+    credenciales.crear(conn, "WS_01", "Parque X", "abc")
+
+    assert credenciales.verificar_token(conn, "WS_01", "no-es-el-token") is False
+
+
+def test_verificar_token_de_estacion_inexistente(tmp_path):
+    conn = credenciales.abrir(str(tmp_path / "test.db"))
+
+    assert credenciales.verificar_token(conn, "WS_99", "x") is False
+
+
+def test_verificar_token_tras_la_baja_devuelve_false(tmp_path):
+    # 1. Preparar: el token es válido mientras la estación está activa
+    conn = credenciales.abrir(str(tmp_path / "test.db"))
+    token = credenciales.crear(conn, "WS_01", "Parque X", "abc")
+    assert credenciales.verificar_token(conn, "WS_01", token) is True
+
+    # 2. Ejecutar
+    credenciales.dar_de_baja(conn, "WS_01")
+
+    # 3. Comprobar
+    assert credenciales.verificar_token(conn, "WS_01", token) is False
