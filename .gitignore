@@ -26,3 +26,6 @@ WM_Central/data/
 
 # Riego en curso que guarda el Engine al ejecutarse fuera de Docker
 WM_WS/datos/
+
+# Clave privada del Registry: nunca a Git ni dentro de una imagen
+certs/*.key
