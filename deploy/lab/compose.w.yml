@@ -1,0 +1,26 @@
+# PC LAB 1: oficina meteorológica (WM_W - Weather Control Office).
+#
+#   cd deploy/lab
+#   cp .env.example .env               # IP de la EC2, API_KEY y OPENWEATHER_API_KEY
+#   docker compose -f compose.w.yml up -d --build
+#   docker attach wm-w                 # menú para cambiar ciudades en caliente (salir sin pararlo: Ctrl+P Ctrl+Q)
+#
+# También puedes editar ../../WM_W/ciudades.txt desde fuera y WM_W lo recarga solo cada 4 s.
+
+name: wm-w
+
+services:
+  wm-w:
+    build:
+      context: ../..
+      dockerfile: WM_W/Dockerfile
+    image: wm-w
+    container_name: wm-w
+    restart: unless-stopped
+    env_file: .env
+    stdin_open: true
+    tty: true
+    environment:
+      API_CENTRAL_URL: http://${CENTRAL_HOST}:${API_PORT:-8080}
+    volumes:
+      - ../../WM_W/ciudades.txt:/app/WM_W/ciudades.txt

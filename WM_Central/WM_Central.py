@@ -19,7 +19,7 @@ import time
 from collections import deque
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+from common import auditoria
 from common import estados as E                                     # noqa: E402
 from common import kafka_utils as K                                 # noqa: E402
 from common.protocolo import CanalTramas, ErrorProtocolo, STX, EOT, construir, separar  # noqa: E402
@@ -43,6 +43,9 @@ class Estacion:
         self.salud = E.SALUD_OK
         self.riego = None       # dict con order_id, operator_id, caudal, volumen, segundos
         self.pendiente = None   # solicitud autorizada por CENTRAL esperando al Engine
+        self.ciudad = ubicacion
+        self.temperatura = None
+        self.alerta_clima = None  # None | 'LLUVIA' | 'HELADA
 
     @property
     def estado(self):
@@ -50,7 +53,7 @@ class Estacion:
             return E.DESCONECTADA
         if self.salud == E.SALUD_KO:
             return E.FUGA
-        if self.bloqueada:
+        if self.bloqueada and not (self.alerta_clima and self.riego):
             return E.FUERA_SERVICIO
         if self.riego:
             return E.REGANDO
@@ -58,10 +61,21 @@ class Estacion:
 
     def a_dict(self):
         riego = self.riego or {}
-        return {'id': self.id, 'ubicacion': self.ubicacion, 'estado': self.estado,
-                'caudal': riego.get('caudal', 0.0), 'volumen': riego.get('volumen', 0.0),
-                'segundos': riego.get('segundos', 0), 'duracion': riego.get('duracion', 0),
-                'operario': riego.get('operator_id', '')}
+        return {
+            'id': self.id,
+            'ubicacion': self.ubicacion,
+            'estado': self.estado,
+            'registrada': True,
+            'tiene_token': bool(getattr(self, 'clave_simetrica', None)),
+            'caudal': riego.get('caudal', 0.0),
+            'volumen': riego.get('volumen', 0.0),
+            'segundos': riego.get('segundos', 0),
+            'duracion': riego.get('duracion', 0),
+            'operario': riego.get('operator_id', ''),
+            'ciudad': self.ciudad,
+            'temperatura': self.temperatura,
+            'alerta_clima': self.alerta_clima,
+        }
 
 
 class Central:
@@ -408,6 +422,7 @@ class Central:
         with self.lock:
             return [ws.a_dict() for ws in sorted(self.estaciones.values(), key=lambda w: w.id)]
 
+    
     # =========================================================================
     def iniciar(self, puerto_panel):
         self.log(f"[CENTRAL] {len(self.estaciones)} estaciones cargadas de la BD (DESCONECTADAS)")
@@ -416,7 +431,46 @@ class Central:
         threading.Thread(target=self.bucle_estado_red, daemon=True).start()
         iniciar_panel(self, puerto_panel)   # bloquea el hilo principal
 
+    def registrar_alerta_clima(self, ws_id, motivo, temperatura=None, ciudad=None, ip_origen="WM_W"):
+        with self.lock:
+            ws = self.estaciones.get(ws_id)
+            if ws is None:
+                return False, f"La estación {ws_id} no existe"
+            if ciudad:
+                ws.ciudad = ciudad
+            if temperatura is not None:
+                ws.temperatura = temperatura
+            ws.alerta_clima = motivo
+            ws.bloqueada = True
+            self.bd.marcar_bloqueada(ws.id, True)
+            if ws.pendiente:
+                sol, ws.pendiente = ws.pendiente, None
+                self.notificar(sol, 'DENEGADA', f'Activación cancelada por alerta climática ({motivo})')
+            if not ws.riego:
+                self.ordenar(ws.id, 'BLOQUEAR')
 
+        desc = f"Alerta {motivo} en {ws_id} ({ws.ciudad}, {temperatura} °C)"
+        self.log(f"[CLIMA] {desc} -> FUERA DE SERVICIO")
+        auditoria.registrar("WM_W", ip_origen, "ALERTA_CLIMA", desc,
+                            ws_id=ws_id, motivo=motivo, temperatura=temperatura, ciudad=ws.ciudad)
+        return True, desc
+
+    def cancelar_alerta_clima(self, ws_id, ip_origen="WM_W"):
+        with self.lock:
+            ws = self.estaciones.get(ws_id)
+            if ws is None:
+                return False, f"La estación {ws_id} no existe"
+            ws.alerta_clima = None
+            ws.bloqueada = False
+            self.bd.marcar_bloqueada(ws.id, False)
+            self.ordenar(ws.id, 'ACTIVAR')
+
+        desc = f"Alerta climática cancelada en {ws_id} ({ws.ciudad}) -> ACTIVADA"
+        self.log(f"[CLIMA] {desc}")
+        auditoria.registrar("WM_W", ip_origen, "ALERTA_CANCELADA", desc,
+                            ws_id=ws_id, ciudad=ws.ciudad)
+        return True, desc
+    
 def main():
     p = argparse.ArgumentParser(prog='WM_Central', description='Central de la red de riego')
     p.add_argument('puerto_sockets', type=int, help='Puerto que se ofrece a los WM_WS_M')
