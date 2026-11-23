@@ -61,3 +61,28 @@ def leer_ultimos(limite=100):
         except json.JSONDecodeError:
             continue
     return eventos
+
+def leer_por_fecha(fecha: str, limite: int = 500) -> list[dict]:
+    """
+    Devuelve los eventos cuya marca de tiempo ISO empieza por 'fecha' (ej. '2026-11-23').
+    endpoint GET /audit/{fecha}.
+    """
+    if not os.path.exists(AUDITORIA_PATH):
+        return []
+
+    with _lock:
+        with open(AUDITORIA_PATH, "r", encoding="utf-8") as f:
+            lineas = f.readlines()
+
+    eventos = []
+    for linea in lineas:
+        linea = linea.strip()
+        if not linea:
+            continue
+        try:
+            ev = json.loads(linea)
+            if str(ev.get("ts", "")).startswith(fecha):
+                eventos.append(ev)
+        except json.JSONDecodeError:
+            continue
+    return eventos[-limite:]

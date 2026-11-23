@@ -168,10 +168,7 @@ class OficinaClima:
             print(f"  La estación {ws_id} no estaba configurada.")
 
     def _notificar_central(self, ws_id, info):
-        """
-        Comunica cambios de alerta a API_Central (PUT o DELETE /api/v1/alertas/{ws_id}).
-        Si url_central no está configurada aún (Semana 1), solo registra el evento en consola.
-        """
+        """Comunica alertas y cancelaciones a API_Central mediante /weather/{ws_id}."""
         estado = info["estado"]
         previo = self.alertas_activas.get(ws_id)
 
@@ -181,7 +178,7 @@ class OficinaClima:
                     f"({info['temp']} °C, {info['descripcion']})")
             self.alertas_activas[ws_id] = estado
             if self.url_central:
-                self._enviar_http("PUT", f"{self.url_central}/api/v1/alertas/{ws_id}", {
+                self._enviar_http("PUT", f"{self.url_central}/weather/{ws_id}", {
                     "motivo": estado,
                     "temperatura": info["temp"],
                     "ciudad": info["ciudad"],
@@ -192,7 +189,7 @@ class OficinaClima:
                     f"clima favorable ({info['temp']} °C, {info['descripcion']})")
                 del self.alertas_activas[ws_id]
                 if self.url_central:
-                    self._enviar_http("DELETE", f"{self.url_central}/api/v1/alertas/{ws_id}")
+                    self._enviar_http("DELETE", f"{self.url_central}/weather/{ws_id}")
 
     def _enviar_http(self, metodo, url, payload=None):
         """Envía petición REST a API_Central con cabecera X-API-Key."""
