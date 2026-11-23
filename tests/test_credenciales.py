@@ -107,3 +107,25 @@ def test_verificar_token_tras_la_baja_devuelve_false(tmp_path):
 
     # 3. Comprobar
     assert credenciales.verificar_token(conn, "WS_01", token) is False
+
+
+def test_actualizar_ubicacion_cambia_el_valor(tmp_path):
+    # 1. Preparar
+    conn = credenciales.abrir(str(tmp_path / "test.db"))
+    credenciales.crear(conn, "WS_01", "Parque X", "abc")
+    antes = credenciales.obtener(conn, "WS_01")
+
+    # 2. Ejecutar
+    resultado = credenciales.actualizar_ubicacion(conn, "WS_01", "Jardines Y")
+
+    # 3. Comprobar: cambia la ubicación y no se toca nada más
+    despues = credenciales.obtener(conn, "WS_01")
+    assert resultado is True
+    assert despues["ubicacion"] == "Jardines Y"
+    assert despues["huella_cert"] == antes["huella_cert"]
+    assert despues["activa"] == antes["activa"]
+
+
+def test_actualizar_ubicacion_inexistente_devuelve_false(tmp_path):
+    conn = credenciales.abrir(str(tmp_path / "test.db"))
+    assert credenciales.actualizar_ubicacion(conn, "WS_99", "Jardines Y") is False

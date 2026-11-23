@@ -66,6 +66,41 @@ def consultar(ws_id):
         return jsonify({'error': f'La estación {ws_id} no existe'}), 404
     return jsonify(estacion)
 
+def _token_valido(conn, ws_id):
+    """True si la petición lleva en X-Token el token de esa estación (y está activa)."""
+    token = request.headers.get('X-Token')
+    return bool(token) and credenciales.verificar_token(conn, ws_id, token)
+
+
+@app.put('/api/v1/estaciones/<ws_id>')
+def modificar(ws_id):
+    conn = bd()
+    try:
+        # Primero la autenticación (401) y después los datos (400)
+        if not _token_valido(conn, ws_id):
+            return jsonify({'error': 'Token ausente o no válido'}), 401
+        datos = request.get_json(silent=True) or {}
+        ubicacion = datos.get('ubicacion')
+        if not ubicacion:
+            return jsonify({'error': 'Falta el campo ubicacion'}), 400
+        credenciales.actualizar_ubicacion(conn, ws_id, ubicacion)
+    finally:
+        conn.close()
+    return jsonify({'ws_id': ws_id, 'ubicacion': ubicacion})
+
+
+@app.delete('/api/v1/estaciones/<ws_id>')
+def baja(ws_id):
+    conn = bd()
+    try:
+        if not _token_valido(conn, ws_id):
+            return jsonify({'error': 'Token ausente o no válido'}), 401
+        credenciales.dar_de_baja(conn, ws_id)
+    finally:
+        conn.close()
+    return jsonify({'ws_id': ws_id, 'activa': False})
+
+
 @app.get('/api/v1/salud')
 def salud():
     return jsonify({'ok': True})

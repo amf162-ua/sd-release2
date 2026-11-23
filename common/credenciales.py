@@ -78,6 +78,15 @@ def dar_de_baja(conn, ws_id):
     return cursor.rowcount > 0
 
 
+def actualizar_ubicacion(conn, ws_id, ubicacion):
+    """Cambia la ubicación de una estación. True si existía, False si no."""
+    cursor = conn.execute(
+        "UPDATE credenciales SET ubicacion = ? WHERE ws_id = ?", (ubicacion, ws_id)
+    )
+    conn.commit()
+    return cursor.rowcount > 0
+
+
 def verificar_token(conn, ws_id, token):
     """True si el token corresponde a esa estación y la estación está activa."""
     hash_recibido = hashlib.sha256(token.encode()).hexdigest()
