@@ -65,3 +65,13 @@ def consultar(ws_id):
     if estacion is None:
         return jsonify({'error': f'La estación {ws_id} no existe'}), 404
     return jsonify(estacion)
+
+@app.get('/api/v1/salud')
+def salud():
+    return jsonify({'ok': True})
+
+if __name__ == '__main__':
+    raiz = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cert = os.environ.get('CERT_PATH', os.path.join(raiz, 'certs', 'registry.pem'))
+    clave = os.environ.get('KEY_PATH', os.path.join(raiz, 'certs', 'registry.key'))
+    app.run(host='0.0.0.0', port=8443, ssl_context=(cert, clave))
